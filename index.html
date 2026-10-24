@@ -1,106 +1,147 @@
-<html>
-	<head>
-		<script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
-		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-		<style>
-			h1 {
-				text-align: center;
-			}
-
-			.container {
-				margin: 0 auto;
-				padding: 60px 20%;
-			}
-
-			figure {
-				text-align: center;
-			}
-
-			img {
-				display: inline-block;
-			}
-
-			body {
-				font-family: 'Inter', sans-serif;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="container">
-		<h1>CS184/284A Fall 2026 Homework 3 Write-Up</h1>
-		<div style="text-align: center;">Names: </div>
-
-		<br>
-
-		Link to webpage: (TODO) <a href="https://cs184.eecs.berkeley.edu/fa26">cs184.eecs.berkeley.edu/fa26</a>
-		Link to GitHub repository: (TODO) <a href="https://cs184.eecs.berkeley.edu/fa26">cs184.eecs.berkeley.edu/fa26</a>
-		
-		<figure>
-			<img src="assets/cornell.png" alt="Cornell Boxes with Bunnies" style="width:70%"/>
-			<figcaption>You can add images with captions!</figcaption>
-		</figure>
-
-		<!--
-		We've already added one heading per part, to make your write-up as navigable when grading. Please fit your write-up within these sections!
-		-->
-
-		<h2>Overview</h2>
-		Give a high-level overview of what you implemented in this homework. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the homework.
-
-		<h2>Part 1: Ray Generation and Scene Intersection</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-		<p>Here is an example 2x2 gridlike structure using an HTML table. Each <b>tr</b> is a row and each <b>td</b> is a column in that row. You might find this useful for framing and showing your result images in an organized fashion.</p>
-		<div style="display: flex; flex-direction: column; align-items: center;">
-			<table style="width: 100%; text-align: center; border-collapse: collapse;">
-			  <tr>
-				<td style="text-align: center;">
-				  <img src="assets/cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-				<td style="text-align: center;">
-				  <img src="assets/cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-			  </tr>
-			  <tr>
-				<td style="text-align: center;">
-				  <img src="assets/cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-				<td style="text-align: center;">
-				  <img src="assets/cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
-				</td>
-			  </tr>
-			</table>
-		</div>
-		
-		<h2>Part 2: Bounding Volume Hierarchy</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-		<h2>Part 3: Direct Illumination</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-		<h2>Part 4: Global Illumination</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-		<h2>Part 5: Adaptive Sampling</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-		<h2>(Optional) Part 6: Extra Credit Opportunities</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-		
-		<h2>Additional Notes (please remove)</h2>
-		<ul>
-			<li>You can also add code if you'd like as so: <code>code code code</code></li>
-			<li>If you'd like to add math equations, 
-				<ul>
-					<li>You can write inline equations like so: \( a^2 + b^2 = c^2 \)</li>
-					<li>You can write display equations like so: \[ a^2 + b^2 = c^2 \]</li>
-				</ul>
-			</li>
-		</ul>
-		</div>
-	</body>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CS 184/284A Homework 3: PathTracer, Fall 2026. Overview and ray-generation and intersection report.">
+  <title>Homework 3: PathTracer | CS 184/284A, Fall 2026</title>
+  <style>
+    :root { color-scheme: light; --ink: #202a34; --muted: #52606d; --rule: #d8dfe5; --link: #16578a; }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 1rem; }
+    body { margin: 0; color: var(--ink); background: #fff; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 17px; line-height: 1.7; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 48px 32px 64px; }
+    header { border-bottom: 1px solid var(--rule); padding-bottom: 24px; }
+    .course, .byline { color: var(--muted); margin: 0; }
+    h1 { font-size: clamp(2rem, 5vw, 2.75rem); line-height: 1.2; margin: 8px 0 12px; font-weight: 650; }
+    h2 { font-size: 1.65rem; line-height: 1.3; margin: 0 0 20px; }
+    h3 { font-size: 1.15rem; line-height: 1.4; margin: 28px 0 10px; }
+    p { margin: 0 0 16px; }
+    a { color: var(--link); text-underline-offset: 3px; }
+    a:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+    nav { padding: 18px 0 4px; }
+    nav ul { display: flex; flex-wrap: wrap; gap: 8px 22px; list-style: none; padding: 0; margin: 0; }
+    .draft { font-size: .9rem; color: var(--muted); margin-top: 16px; }
+    main > section { padding-top: 40px; }
+    .equation { font-family: "Cambria Math", "STIX Two Math", Georgia, serif; padding: 12px 16px; margin: 18px 0; border-left: 2px solid var(--rule); overflow-x: auto; line-height: 1.9; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .88em; overflow-wrap: anywhere; }
+    .figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
+    figure { margin: 0; min-width: 0; break-inside: avoid; }
+    figure img { display: block; width: 100%; height: auto; }
+    figcaption { margin-top: 12px; font-size: .9rem; line-height: 1.6; color: var(--muted); }
+    .provenance { font-size: .9rem; color: var(--muted); margin-top: 20px; }
+    .pending { color: var(--muted); padding-top: 28px; }
+    .pending h2 { font-size: 1.25rem; margin-bottom: 8px; }
+    footer { border-top: 1px solid var(--rule); margin-top: 40px; padding-top: 16px; font-size: .85rem; color: var(--muted); }
+    @media (max-width: 640px) {
+      .container { padding: 28px 20px 40px; }
+      .figures { grid-template-columns: 1fr; }
+      body { font-size: 16px; }
+      .equation { padding: 10px; }
+    }
+    @media print {
+      @page { size: letter; margin: 16mm; }
+      body { font-family: Arial, sans-serif; font-size: 10.5pt; line-height: 1.5; color: #111; }
+      .container { max-width: none; padding: 0; }
+      nav { display: none; }
+      h1 { font-size: 25pt; }
+      h2 { font-size: 17pt; }
+      h3 { font-size: 12pt; }
+      h2, h3 { break-after: avoid; }
+      main > section { padding-top: 20pt; }
+      a { color: inherit; }
+      .equation { font-size: 11pt; padding: 6pt 10pt; margin: 10pt 0; overflow: visible; break-inside: avoid; }
+      .figures { grid-template-columns: 1fr 1fr; gap: 14pt; break-inside: avoid; }
+      figcaption, .provenance, footer, .draft { font-size: 9pt; }
+      p { orphans: 3; widows: 3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <p class="course">CS 184/284A · Fall 2026</p>
+      <h1>Homework 3: PathTracer</h1>
+      <p class="byline">md-islam</p>
+      <p class="draft">Local report draft: Overview and Part 1 are complete. Parts 2–6 are pending. This partial report has not been published.</p>
+      <nav aria-label="Report sections">
+        <ul>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#part1">Part 1</a></li>
+          <li><a href="#part2">Part 2</a></li>
+          <li><a href="#part3">Part 3</a></li>
+          <li><a href="#part4">Part 4</a></li>
+          <li><a href="#part5">Part 5</a></li>
+          <li><a href="#part6">Part 6: Extra Credit</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <section id="overview" aria-labelledby="overview-heading">
+        <h2 id="overview-heading">Overview</h2>
+        <p>This project builds a diffuse path tracer from camera-ray generation through adaptive image sampling. Camera rays first find the closest visible surface using triangle and sphere intersections. A bounding volume hierarchy (BVH) reduces the number of primitive tests. Direct illumination is estimated with uniform hemisphere sampling or importance sampling of scene lights. Recursive BSDF sampling adds indirect illumination, with Russian roulette weighting to compensate for randomly terminated paths. Adaptive sampling checks an estimated confidence interval in batches and assigns more camera samples to pixels that have not met the stopping criterion.</p>
+        <p>The implementation also includes three extensions: a 16-bin surface area heuristic (SAH) for BVH construction, randomly shifted Halton samples for pixel sampling, and iterative BVH construction and traversal. Their comparisons and tradeoffs belong in Part 6. These changes do not make every workload faster or remove all sources of rendering noise.</p>
+        <p>The correctness follow-ups focused on issues that affect the whole rendering pipeline: preserving ray intervals and nearest-hit records, stabilizing sphere intersections when numerical cancellation obscures the roots, correcting an area-light PDF conversion to solid angle, and making random sampling and intersection statistics safe across worker threads. The resulting technical lesson is that a plausible image is only one check. Geometry needs distance and normal tests, a Monte Carlo estimator needs a PDF in the correct measure, and parallel rendering needs safe state ownership. The report separates those correctness checks from image comparisons and performance measurements.</p>
+      </section>
+      <section id="part1" aria-labelledby="part1-heading">
+        <h2 id="part1-heading">Part 1: Ray Generation and Scene Intersection</h2>
+        <p>The first stage maps image samples to world-space rays and finds the nearest valid surface hit. Normal shading makes the resulting geometry visible before lighting is evaluated: the surface normal is mapped to color by <code>n / 2 + (0.5, 0.5, 0.5)</code>.</p>
+        <h3>Camera ray generation</h3>
+        <p><code>Camera::generate_ray</code> accepts normalized image coordinates <var>x</var> and <var>y</var>. The virtual sensor lies at camera-space <var>z</var> = −1. Horizontal and vertical fields of view determine its half-width and half-height, giving the unnormalized direction</p>
+        <div class="equation" role="math" aria-label="Camera-space sensor direction">
+          <var>s</var> = ((2<var>x</var> − 1) tan(hFov / 2), (2<var>y</var> − 1) tan(vFov / 2), −1).<br>
+          <var>o</var> = camera position, &nbsp; <var>d</var> = normalize(c2w · <var>s</var>).
+        </div>
+        <p>The code converts the degree-valued fields of view to radians before evaluating the tangents. Multiplication by the camera-to-world rotation <code>c2w</code> turns the sensor direction into a world-space direction. The ray begins at the camera position, and its direction is normalized after the transformation. Its valid parameter interval is initialized to the camera’s near and far clipping values, <code>nClip</code> and <code>fClip</code>.</p>
+        <h3>Sampling and averaging a pixel</h3>
+        <p>In the default random mode, each camera sample uses two offsets inside pixel (<var>i</var>, <var>j</var>). The image dimensions <var>W</var> and <var>H</var> are used separately, so the mapping also works for nonsquare images:</p>
+        <div class="equation" role="math" aria-label="Normalized pixel sample and radiance average">
+          <var>x</var> = (<var>i</var> + ξ<sub>x</sub>) / <var>W</var>, &nbsp;
+          <var>y</var> = (<var>j</var> + ξ<sub>y</sub>) / <var>H</var>, &nbsp; 0 ≤ ξ<sub>x</sub>, ξ<sub>y</sub> &lt; 1.<br>
+          Ĉ<sub>ij</sub> = (1 / <var>k</var>) ∑<sub>s=1</sub><sup>k</sup> L(<var>r</var><sub>s</sub>).
+        </div>
+        <p><code>raytrace_pixel</code> generates a camera ray for every sample, evaluates its RGB radiance, and accumulates the values before dividing by the number of samples actually taken. Fixed sampling uses the requested sample count. When adaptive sampling is enabled, the same normalization uses the actual stopping count. The average is stored in the HDR sample buffer; conversion to the displayed image happens afterward.</p>
+        <h3>Ray–triangle intersection and barycentric normals</h3>
+        <p>The committed triangle routine uses the two-sided Möller–Trumbore algorithm. For vertices <var>p</var><sub>1</sub>, <var>p</var><sub>2</sub>, and <var>p</var><sub>3</sub>, define edges <var>e</var><sub>1</sub> = <var>p</var><sub>2</sub> − <var>p</var><sub>1</sub> and <var>e</var><sub>2</sub> = <var>p</var><sub>3</sub> − <var>p</var><sub>1</sub>. The ray <var>o</var> + <var>t d</var> meets the triangle at <var>p</var><sub>1</sub> + <var>u e</var><sub>1</sub> + <var>v e</var><sub>2</sub>. Cross and dot products solve for the barycentric coordinates and distance:</p>
+        <div class="equation" role="math" aria-label="Moller-Trumbore intersection formulas">
+          <var>P</var> = <var>d</var> × <var>e</var><sub>2</sub>, &nbsp; Δ = <var>e</var><sub>1</sub> · <var>P</var>, &nbsp; <var>S</var> = <var>o</var> − <var>p</var><sub>1</sub>, &nbsp; <var>Q</var> = <var>S</var> × <var>e</var><sub>1</sub>.<br>
+          <var>u</var> = (<var>S</var> · <var>P</var>) / Δ, &nbsp; <var>v</var> = (<var>d</var> · <var>Q</var>) / Δ, &nbsp; <var>t</var> = (<var>e</var><sub>2</sub> · <var>Q</var>) / Δ.
+        </div>
+        <p>A zero determinant is rejected. A negative determinant is allowed, so back-facing triangles can still intersect. A point is inside when <var>u</var> ≥ 0, <var>v</var> ≥ 0, and <var>u</var> + <var>v</var> ≤ 1. The code then requires a finite, nonnegative <var>t</var> inside the ray’s current inclusive interval [<code>min_t</code>, <code>max_t</code>]. On a hit, it reduces <code>max_t</code> to <var>t</var> and updates the intersection record’s distance, primitive, BSDF, and normal. Subsequent primitive tests cannot replace that hit with a farther surface.</p>
+        <div class="equation" role="math" aria-label="Barycentric normal interpolation">
+          <var>n</var> = (1 − <var>u</var> − <var>v</var>) <var>n</var><sub>1</sub> + <var>u n</var><sub>2</sub> + <var>v n</var><sub>3</sub>.
+        </div>
+        <p>The weights are the same barycentric coordinates used for the hit location. The triangle routine stores this interpolated vertex normal without renormalizing it. It does not replace it with the face normal. For lighting, the later local-coordinate construction normalizes its normal axis. This distinction keeps interpolation and shading-frame construction separate.</p>
+        <h3>Ray–sphere intersection and numerical stability</h3>
+        <p>For sphere center <var>c</var> and radius <var>R</var>, substitution of the ray into ‖<var>o</var> + <var>t d</var> − <var>c</var>‖² = <var>R</var>² gives a quadratic. With <var>v</var> = <var>o</var> − <var>c</var>, its coefficients are <var>a</var> = <var>d</var> · <var>d</var>, <var>b</var> = 2(<var>v</var> · <var>d</var>), and <var>c</var><sub>q</sub> = <var>v</var> · <var>v</var> − <var>R</var>².</p>
+        <p>The implemented solver uses an equivalent geometric form rather than directly subtracting the nearly equal terms in <var>b</var>² − 4<var>a c</var><sub>q</sub>. It scales the direction by a power of two, then evaluates a radius-normalized perpendicular distance with compensated cross products built from fused multiply-add operations. For the scaled direction <var>d</var>′, it computes</p>
+        <div class="equation" role="math" aria-label="Stable sphere midpoint and half-chord calculation">
+          <var>A</var> = <var>d</var>′ · <var>d</var>′, &nbsp; <var>H</var> = <var>A</var> − ‖(<var>v</var> × <var>d</var>′) / <var>R</var>‖²,<br>
+          <var>m</var> = −(<var>v</var> · <var>d</var>′) / <var>A</var>, &nbsp; <var>h</var> = <var>R</var> √<var>H</var> / <var>A</var>.
+        </div>
+        <p>A negative <var>H</var> is a miss. The larger-magnitude scaled root is formed as <var>q</var> = <var>m</var> + copysign(<var>h</var>, <var>m</var>); the other uses the factored root product (<span aria-label="norm of v">‖<var>v</var>‖</span> − <var>R</var>)(‖<var>v</var>‖ + <var>R</var>) / (<var>Aq</var>). Tangencies and zero-root cases have an explicit midpoint branch. The solver sorts the roots and rescales their parameters back to the original ray.</p>
+        <p>The nearer root is selected first. If it is negative or before <code>min_t</code>, the farther root is considered, which also handles rays starting inside a sphere. A nonfinite root or one outside the current interval is rejected. A valid hit updates <code>max_t</code> and the intersection record. The outward analytic normal is the normalized radial vector at the hit point; fused multiply-add evaluation of its components helps retain accuracy when the ray origin is far from a small sphere. These precautions improve the tested numerical behavior without asserting robustness for every floating-point input.</p>
+        <h3>Normal-shading results</h3>
+        <p>The following original renderer outputs visualize surface orientation rather than illumination. Planar faces have constant colors, while the spheres show continuous color changes from their analytic normals.</p>
+        <div class="figures">
+          <figure>
+            <img src="docs/images/part1-cornell-box-normals.png" width="800" height="600" alt="Normal-shaded empty Cornell box with differently colored planar walls and a black background.">
+            <figcaption><strong>Figure 1.</strong> <code>CBempty.dae</code>, normal shading, original 800 × 600 PNG. Constant face colors show the orientation of the intersected triangle surfaces. The black region outside the box represents rays that miss the scene.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part1-spheres-normals.png" width="800" height="600" alt="Two normal-shaded spheres inside a Cornell box; their colors vary smoothly across the curved surfaces.">
+            <figcaption><strong>Figure 2.</strong> <code>CBspheres_lambertian.dae</code>, normal shading, original 800 × 600 PNG. Smooth normal-color gradients on the spheres contrast with the constant colors of the planar walls, illustrating analytic sphere normals and visibility.</figcaption>
+          </figure>
+        </div>
+        <p class="provenance">Figures 1 and 2 are preserved historical Part 1 renderer PNGs, not operating-system screenshots or new lighting renders. Their scene identities were checked against the original render logs. Original PNG dimensions and bytes are unchanged; the page scales their display proportionally. Unrecorded sampling settings are not inferred from filenames.</p>
+      </section>
+      <section id="part2" class="pending" aria-labelledby="part2-heading"><h2 id="part2-heading">Part 2: Bounding Volume Hierarchy</h2><p>Pending a later report milestone.</p></section>
+      <section id="part3" class="pending" aria-labelledby="part3-heading"><h2 id="part3-heading">Part 3: Direct Illumination</h2><p>Pending a later report milestone.</p></section>
+      <section id="part4" class="pending" aria-labelledby="part4-heading"><h2 id="part4-heading">Part 4: Global Illumination</h2><p>Pending a later report milestone.</p></section>
+      <section id="part5" class="pending" aria-labelledby="part5-heading"><h2 id="part5-heading">Part 5: Adaptive Sampling</h2><p>Pending a later report milestone.</p></section>
+      <section id="part6" class="pending" aria-labelledby="part6-heading"><h2 id="part6-heading">Part 6: Extra Credit Opportunities</h2><p>Pending a later report milestone.</p></section>
+    </main>
+    <footer>CS 184/284A · Homework 3 · Fall 2026. Local draft awaiting the remaining report sections and final student review.</footer>
+  </div>
+</body>
 </html>
