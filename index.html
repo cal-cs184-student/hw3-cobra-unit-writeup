@@ -470,7 +470,116 @@
         <p>“Samples avoided” is 100 × (1 − mean spp / 2048), relative to a hypothetical uniform 2048-spp budget. It measures sampling work not performed, not a measured wall-time speedup or an equal-quality comparison. The images retain some grain, and reaching the tolerance does not guarantee a noise-free pixel. Rare bright paths, the relative criterion in dark regions, and data-dependent stopping limit confidence calibration and can leave residual error or bias. There is one random realization per scene and no converged reference or formal convergence claim.</p>
         <p class="provenance">The final adaptive evidence manifest at production commit <code>a8474c1</code> records both successful <code>-f</code> renderer runs, their original render/rate pairs, exact settings, and SHA-256 hashes. All four original PNGs were copied byte-for-byte without cropping, resizing, recompression, or color changes. No new render or timing benchmark was run for this report.</p>
       </section>
-      <section id="part6" class="pending" aria-labelledby="part6-heading"><h2 id="part6-heading">Part 6: Extra Credit Opportunities</h2><p>Pending a later report milestone.</p></section>
+      <section id="part6" aria-labelledby="part6-heading">
+        <h2 id="part6-heading">Part 6: Extra Credit</h2>
+        <p>Three implemented extensions correspond to separate Fall 2026 Challenge Level 1 options. Their evaluations below distinguish BVH query costs, complete render times, and pixel-sampling quality. None establishes a universal performance advantage or an extra-credit award.</p>
+        <h3>6.1 SAH BVH Splitting</h3>
+        <p>Median splitting balances primitive counts, but a balanced tree can still have overlapping or poorly placed bounds. The surface area heuristic (SAH) approximates child-hit probabilities by child-to-parent box area ratios. The implementation bins primitive centroids into 16 bins along each nondegenerate axis, accumulates prefix and suffix bounds/counts, and evaluates the eligible boundaries using</p>
+        <div class="equation" role="math" aria-label="Binned surface area heuristic cost">
+          C = 1 + (A<sub>L</sub>N<sub>L</sub> + A<sub>R</sub>N<sub>R</sub>) / A<sub>parent</sub>.
+        </div>
+        <p>The lowest-cost candidate across all axes wins. Areas use extents normalized by a common parent scale to reduce extreme-scale numerical problems. Each child must contain at least max(1, floor(N/16)) primitives, limiting highly unbalanced splits. The hard leaf cap, with zero treated as one, determines termination; the code does not stop at a larger leaf merely because splitting costs more than N. If no valid candidate exists, it falls back to a count median on the widest centroid axis. Leaves reference contiguous ranges in the existing primitive vector.</p>
+        <p>The historical baseline is the preserved median-split BVH, not Part 2’s single-leaf baseline. Six workloads use 131072 fixed seeded rays per query path, leaf cap 4, identical geometry, AppleClang/C++11/O3 and the same SDK. Synthetic uniform, clustered, and elongated inputs contain 12000 primitives each; the extracted object-space cow, bunny, and dragon meshes contain 5856, 28576, and 100000 triangles. Five alternating trials provide median in-process timings. Loading, ray generation, metadata, brute-force checks, and warm-up are excluded. Eight-worker query timing includes worker launch/join; construction remains serial.</p>
+        <div class="table-scroll"><table class="benchmark" id="part6-sah">
+          <caption>SAH versus median BVH: one-worker medians in milliseconds. M = median splitting; S = SAH. Build S/M > 1 means more construction time; query M/S > 1 favors SAH.</caption>
+          <thead><tr><th scope="col">Workload</th><th scope="col">Build ms<br>M / S</th><th scope="col">Build<br>S/M</th><th scope="col">Closest ms<br>M / S</th><th scope="col">Closest<br>M/S</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">uniform</th><td>M 3.704<br>S 6.189</td><td>1.671×</td><td>M 176.679<br>S 168.972</td><td>1.046×</td></tr>
+            <tr><th scope="row">clustered</th><td>M 3.631<br>S 6.362</td><td>1.752×</td><td>M 98.721<br>S 88.055</td><td>1.121×</td></tr>
+            <tr><th scope="row">elongated</th><td>M 3.106<br>S 6.415</td><td>2.066×</td><td>M 34.030<br>S 33.003</td><td>1.031×</td></tr>
+            <tr><th scope="row">cow</th><td>M 1.538<br>S 2.407</td><td>1.565×</td><td>M 83.998<br>S 69.896</td><td>1.202×</td></tr>
+            <tr><th scope="row">bunny</th><td>M 9.575<br>S 15.514</td><td>1.620×</td><td>M 112.017<br>S 102.549</td><td>1.092×</td></tr>
+            <tr><th scope="row">dragon</th><td>M 44.005<br>S 64.569</td><td>1.467×</td><td>M 228.231<br>S 184.633</td><td>1.236×</td></tr>
+          </tbody>
+        </table></div>
+        <div class="table-scroll"><table class="benchmark" id="part6-sah-eight">
+          <caption>Eight-worker query comparisons on the same fixed rays. Construction is still serial. All entries are ratios of median times.</caption>
+          <thead><tr><th scope="col">Workload</th><th scope="col">Build S/M</th><th scope="col">Closest M/S</th><th scope="col">Any-hit M/S</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">uniform</th><td>1.667×</td><td>1.106×</td><td>1.075×</td></tr>
+            <tr><th scope="row">clustered</th><td>1.785×</td><td>1.139×</td><td>1.170×</td></tr>
+            <tr><th scope="row">elongated</th><td>2.077×</td><td>1.030×</td><td>1.028×</td></tr>
+            <tr><th scope="row">cow</th><td>1.568×</td><td>1.175×</td><td>1.177×</td></tr>
+            <tr><th scope="row">bunny</th><td>1.587×</td><td>1.075×</td><td>1.119×</td></tr>
+            <tr><th scope="row">dragon</th><td>1.635×</td><td>1.243×</td><td>1.231×</td></tr>
+          </tbody>
+        </table></div>
+        <p>Across these measurements, SAH construction costs 1.47–2.08× the median baseline, while closest-hit query speedups range from 1.03–1.24×. Cow and dragon benefit more than elongated geometry; the latter gains only about 3% in closest-hit traversal while roughly doubling build cost. Any-hit speedups range from 1.03–1.32×. Repeated queries can amortize construction, but a short-lived scene may not. These are intersection-only results, not full-image rendering speedups. Part 2’s much larger linear-baseline speedups measure a different experiment.</p>
+        <p>Retained validation reports contain 2386766 construction-invariant checks across 1714 datasets and 48619 independent cost checks, including 7604 exhaustive small-node comparisons. Bounds, primitive membership, leaf caps, fallback behavior, and brute-force query comparisons were checked. The existing cow, Max Planck, and bunny normal images in Part 2 illustrate accelerated geometry, not an SAH-versus-median quality change. Timing ratios, rather than identical output colors, support the performance conclusions.</p>
+        <h3>6.2 Randomized Halton Sampling</h3>
+        <p>The opt-in pixel sampler uses radical inverses in bases 2 and 3, starting at index 1. For each pixel it draws one fresh uniform 2D shift U and returns fract((φ₂(k), φ₃(k)) + U). This is a random translation on the unit square, not digit scrambling. The local sampler owns its shift and 64-bit index, so workers do not share mutable sequence state. Adding the jitter to the pixel coordinate and dividing by image width/height produces camera coordinates. The progressive sequence supports arbitrary budgets and stopped prefixes.</p>
+        <p>Only <code>CGL_PIXEL_SAMPLER=halton</code> selects it; unset, random, or other values keep the original random default. The feature changes pixel placement only, not explicit light sampling or cosine-weighted path continuation. Points within a translated prefix are correlated. The unchanged adaptive confidence formula is therefore heuristic in this mode, and data-dependent stopping has no unbiasedness or calibrated coverage guarantee. Finite PRNG, endpoint clamping, floating-point precision, and finite index range remain limitations.</p>
+        <p>Quality tests compare four randomized renderer trials per mode and budget, at matched explicit cameras, 96 × 72, eight workers, one light sample, and adaptive sampling off. MSE averages squared differences over normalized display RGB and all pixels/channels. The emissive-edge reference uses independent exact polygon coverage plus the renderer’s display conversion. Lit scenes use the mean of two independent random 8192-spp reference renders. Those references remain noisy: their estimated noise floor is below 3.2% of the measured 256-spp MSE. Display-space MSE is not ground-truth HDR error or pure transport variance.</p>
+        <div class="table-scroll"><table class="benchmark" id="part6-quality">
+          <caption>Mean renderer display-space MSE over four trials. Ratio = random MSE / Halton MSE: above 1 favors Halton, below 1 favors random.</caption>
+          <thead><tr><th scope="col">Workload</th><th scope="col">spp</th><th scope="col">Random MSE</th><th scope="col">Halton MSE</th><th scope="col">Ratio</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Emissive edge</th><td>256</td><td>5.647e-06</td><td>1.072e-06</td><td>5.269×</td></tr>
+            <tr><th scope="row">CBbunny direct</th><td>256</td><td>2.006e-05</td><td>1.783e-05</td><td>1.125×</td></tr>
+            <tr><th scope="row">Spheres direct</th><td>256</td><td>2.038e-05</td><td>1.653e-05</td><td>1.233×</td></tr>
+            <tr><th scope="row">Spheres GI</th><td>256</td><td>4.955e-05</td><td>4.775e-05</td><td>1.038×</td></tr>
+            <tr><th scope="row">Emissive edge</th><td>1</td><td>1.864e-03</td><td>1.966e-03</td><td>0.948×</td></tr>
+            <tr><th scope="row">Spheres GI</th><td>64</td><td>1.922e-04</td><td>1.915e-04</td><td>1.003×</td></tr>
+          </tbody>
+        </table></div>
+        <p>The six images below are original renderer outputs at their native 96 × 72 resolution, displayed at equal scale. Trial 0 was designated for visual comparison in the experiment records; the numerical table aggregates four trials. The final records select the corrected bunny-facing camera, excluding earlier back-wall camera fixtures. The edge pair illustrates the strongest measured gain, bunny a moderate gain, and the 64-spp global-illumination pair a near-neutral case. Small differences are easier to quantify than to see at this resolution.</p>
+        <div class="figures" id="part6-pair-edge">
+          <figure><img src="docs/images/part6-halton-edge-random.png" width="96" height="72" alt="temporary emissive edge scene, random pixel sampling, 256 spp, showing the slanted triangle silhouette.">
+            <figcaption>Figure 43. Random pixel sampling: temporary emissive edge scene, 256 spp, depth 0, one light sample, 96 × 72, trial 0. Same camera and fixed budget within the pair.</figcaption></figure>
+          <figure><img src="docs/images/part6-halton-edge-halton.png" width="96" height="72" alt="temporary emissive edge scene, random-shift halton pixel sampling, 256 spp, showing the slanted triangle silhouette.">
+            <figcaption>Figure 44. Random-shift Halton pixel sampling: temporary emissive edge scene, 256 spp, depth 0, one light sample, 96 × 72, trial 0. Same camera and fixed budget within the pair.</figcaption></figure>
+        </div>
+        <div class="figures" id="part6-pair-bunny">
+          <figure><img src="docs/images/part6-halton-bunny-random.png" width="96" height="72" alt="CBbunny.dae, random pixel sampling, 256 spp, showing bunny shading and silhouette.">
+            <figcaption>Figure 45. Random pixel sampling: CBbunny.dae, 256 spp, depth 1, one light sample, 96 × 72, trial 0. Same camera and fixed budget within the pair.</figcaption></figure>
+          <figure><img src="docs/images/part6-halton-bunny-halton.png" width="96" height="72" alt="CBbunny.dae, random-shift halton pixel sampling, 256 spp, showing bunny shading and silhouette.">
+            <figcaption>Figure 46. Random-shift Halton pixel sampling: CBbunny.dae, 256 spp, depth 1, one light sample, 96 × 72, trial 0. Same camera and fixed budget within the pair.</figcaption></figure>
+        </div>
+        <div class="figures" id="part6-pair-indirect">
+          <figure><img src="docs/images/part6-halton-indirect-random.png" width="96" height="72" alt="CBspheres_lambertian.dae, random pixel sampling, 64 spp, showing diffuse spheres with colored indirect lighting.">
+            <figcaption>Figure 47. Random pixel sampling: CBspheres_lambertian.dae, 64 spp, depth 5, one light sample, 96 × 72, trial 0. Same camera and fixed budget within the pair.</figcaption></figure>
+          <figure><img src="docs/images/part6-halton-indirect-halton.png" width="96" height="72" alt="CBspheres_lambertian.dae, random-shift halton pixel sampling, 64 spp, showing diffuse spheres with colored indirect lighting.">
+            <figcaption>Figure 48. Random-shift Halton pixel sampling: CBspheres_lambertian.dae, 64 spp, depth 5, one light sample, 96 × 72, trial 0. Same camera and fixed budget within the pair.</figcaption></figure>
+        </div>
+        <p>Halton does not win universally. At one sample the edge ratio is 0.948 and bunny is 0.990, favoring random; an independent linear analytic sinusoid test also has a 0.861 ratio at four samples. Short prefixes can interact poorly with particular frequencies. The indirect renderer ratio is only 1.003 at 64 spp because camera placement does not directly reduce secondary path noise. Retained sampler tests report 6025011 checks, including independent digit-reversal references and 64 discrepancy trials per count; pixel-loop tests report 1153008 checks, with focused concurrent sanitizer checks. These are prior validations, not rerun experiments.</p>
+        <p>A separate 192 × 144 CBbunny timing test uses 64 spp, depth 5, one light sample, fixed sampling, and five alternating trials. Single-worker median wall times are 1.0597 s random and 1.0626 s Halton, essentially unchanged. Eight-worker medians are 0.2972 s and 0.3456 s, a Halton/random ratio of 1.163, or 16.3% higher wall time. These include startup, loading, rendering, saving, and teardown. Scheduling and outside-render variation were uncontrolled; no precise cause or universal overhead is established. Alias-sensitive scenes may justify the opt-in sampler, while path-noise-dominated or very small budgets may prefer random.</p>
+        <h3>6.3 Iterative BVH Construction and Traversal</h3>
+        <p>The recursive SAH baseline is preserved byte-for-byte. Current construction uses <code>std::stack</code> tasks holding a destination node-pointer address and a primitive iterator range. A task is copied and popped before allocation and partitioning; right work is pushed before left to preserve recursive processing order. The primitive vector does not resize during construction, so task destinations and leaf ranges remain stable. The split heuristic, hard leaf cap, bounds, topology, primitive order, and ownership are preserved.</p>
+        <p>Closest-hit and any-hit traversal also use explicit stacks and while loops, preserving left-first order. Deferred boxes are tested against the current ray interval, including a closer primitive’s updated maximum distance. Any-hit exits at its first valid primitive hit; closest-hit continues through potentially nearer nodes and preserves equal-distance ordering. A vector-backed <code>std::stack</code> borrows spare thread-local storage, but each active query owns its vector, including nested queries. Warm queries reuse capacity; cold startup, growth, and nesting can still allocate. Storage remains per thread until exit. Recursive drawing and node destruction remain, and recursive path tracing is unrelated to this BVH change.</p>
+        <p>The retained equivalence log reports 1347094 checks, including 453 exact tree comparisons over 255509 nodes and 27200 brute-force/recursive query comparisons. Tests cover closest/any flags, hit records, distances, normals, primitive-call counts, degenerate trees, nested queries, and a depth-4096 spine. Final fixed-ray workloads preserve node metadata and deterministic query work. Focused sanitizer/regression suites passed on their tested paths; this is not whole-GUI certification.</p>
+        <div class="table-scroll"><table class="benchmark" id="part6-iterative-query">
+          <caption>Recursive (R) versus iterative (I) SAH BVH medians, milliseconds, from five alternating trials and 131072 fixed rays per query path. Same six object-space/synthetic workloads and compiler configuration as the SAH experiment; construction is serial.</caption>
+          <thead><tr><th scope="col">Workload</th><th scope="col">Workers</th><th scope="col">Build ms<br>R / I</th><th scope="col">Closest ms<br>R / I</th><th scope="col">Any-hit ms<br>R / I</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">uniform</th><td>1</td><td>R 6.096<br>I 6.220</td><td>R 165.935<br>I 159.607</td><td>R 130.550<br>I 125.323</td></tr>
+            <tr><th scope="row">uniform</th><td>8</td><td>R 6.526<br>I 6.889</td><td>R 31.290<br>I 32.033</td><td>R 27.151<br>I 27.958</td></tr>
+            <tr><th scope="row">clustered</th><td>1</td><td>R 6.267<br>I 6.313</td><td>R 86.845<br>I 84.387</td><td>R 45.157<br>I 41.512</td></tr>
+            <tr><th scope="row">clustered</th><td>8</td><td>R 6.671<br>I 7.049</td><td>R 24.179<br>I 24.005</td><td>R 12.198<br>I 11.952</td></tr>
+            <tr><th scope="row">elongated</th><td>1</td><td>R 6.483<br>I 6.201</td><td>R 32.648<br>I 30.642</td><td>R 27.522<br>I 28.118</td></tr>
+            <tr><th scope="row">elongated</th><td>8</td><td>R 6.487<br>I 6.662</td><td>R 6.348<br>I 6.828</td><td>R 5.696<br>I 6.091</td></tr>
+            <tr><th scope="row">cow</th><td>1</td><td>R 2.495<br>I 2.520</td><td>R 69.764<br>I 67.547</td><td>R 33.268<br>I 33.688</td></tr>
+            <tr><th scope="row">cow</th><td>8</td><td>R 2.734<br>I 2.695</td><td>R 15.374<br>I 14.842</td><td>R 7.320<br>I 7.306</td></tr>
+            <tr><th scope="row">bunny</th><td>1</td><td>R 15.414<br>I 15.756</td><td>R 100.120<br>I 98.067</td><td>R 47.253<br>I 44.685</td></tr>
+            <tr><th scope="row">bunny</th><td>8</td><td>R 16.703<br>I 16.662</td><td>R 21.505<br>I 22.131</td><td>R 10.157<br>I 10.471</td></tr>
+            <tr><th scope="row">dragon</th><td>1</td><td>R 62.455<br>I 62.748</td><td>R 164.173<br>I 152.413</td><td>R 62.030<br>I 60.354</td></tr>
+            <tr><th scope="row">dragon</th><td>8</td><td>R 63.798<br>I 65.930</td><td>R 35.756<br>I 36.003</td><td>R 14.474<br>I 14.024</td></tr>
+          </tbody>
+        </table></div>
+        <p>Construction ratios R/I range about 0.95–1.05 and query ratios about 0.93–1.09. Below 1 means iterative is slower. Stack push/pop, thread-local storage access, cache effects, and scheduling can offset removed call overhead; their individual contributions were not isolated. Warm allocation checks found zero allocations over 131072 queries per path, but that does not imply zero startup allocation or universally faster execution.</p>
+        <div class="table-scroll"><table class="benchmark" id="part6-iterative-render">
+          <caption>Full-process median seconds for CBspheres_lambertian, Halton pixel sampling, 480 × 360, depth 5, one light sample. Five alternating trials. R/I > 1 favors iterative; R/I < 1 is a regression.</caption>
+          <thead><tr><th scope="col">Budget</th><th scope="col">Workers</th><th scope="col">Recursive s</th><th scope="col">Iterative s</th><th scope="col">R/I</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Fixed64</th><td>1</td><td>5.246</td><td>5.190</td><td>1.011×</td></tr>
+            <tr><th scope="row">Fixed64</th><td>8</td><td>1.554</td><td>1.738</td><td>0.894×</td></tr>
+            <tr><th scope="row">Cap128<br>batch8</th><td>1</td><td>6.586</td><td>6.402</td><td>1.029×</td></tr>
+            <tr><th scope="row">Cap128<br>batch8</th><td>8</td><td>2.438</td><td>2.460</td><td>0.991×</td></tr>
+          </tbody>
+        </table></div>
+        <p>The adaptive comparison uses tolerance 0.1; fixed sampling disables convergence checks. External process measurements include scene load/build, rendering, saving, and teardown. Internal renderer timing text was inconsistent in some runs, so it is not used for these speedup claims. The eight-worker fixed case is about 11.8% slower with iteration, while the one-worker adaptive ratio is 1.029 and the eight-worker adaptive ratio is 0.991. Near-1 ratios are observations, not statistically robust speedup claims. Raw trials show substantial runtime variation.</p>
+        <p>Existing image-validation records cover 80 smaller and 40 larger renders, each with its rate map, across recursive/iterative and fixed/adaptive settings. Geometry, shadows, emission, and indirect fill agree visually; stochastic images are not required to be pixel-identical. Part 2’s normal figures and the global/adaptive figures above illustrate the production iterative implementation, not a before/after speed improvement. Default-constructed BVH root use, allocation-failure exception cleanup, and GUI lifecycle/cancellation remain NOT TESTED. Deep recursive destruction also remains outside the stack conversion.</p>
+        <p class="provenance">This section uses the retained final SAH comparison, framed Halton quality and final-performance records, and pooled/long-render iterative evidence. Timing medians and quality metrics were recomputed from saved data without running a benchmark or renderer. The six selected PNGs are unchanged original outputs; source/copy SHA-256 equality was verified. Earlier report sections and production code are preserved. Final student review, PDF verification, publication, and submission remain separate steps.</p>
+      </section>
     </main>
     <footer>CS 184/284A · Homework 3 · Fall 2026. Local draft awaiting the remaining report sections and final student review.</footer>
   </div>
