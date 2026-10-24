@@ -55,6 +55,25 @@
       figcaption, .provenance, footer, .draft { font-size: 9pt; }
       p { orphans: 3; widows: 3; }
     }
+    .table-scroll { overflow-x: auto; margin: 24px 0 16px; }
+    .benchmark { border-collapse: collapse; width: 100%; font-size: .9rem; font-variant-numeric: tabular-nums; }
+    .benchmark caption { text-align: left; color: var(--muted); margin-bottom: 12px; font-size: .9rem; }
+    .benchmark th, .benchmark td { padding: 10px 8px; text-align: right; border-bottom: 1px solid var(--rule); }
+    .benchmark th:first-child { text-align: left; }
+    .benchmark thead th { border-top: 1px solid var(--rule); vertical-align: bottom; }
+    .benchmark tbody th { font-weight: 500; }
+    @media (max-width: 640px) {
+      .benchmark { font-size: .75rem; }
+      .benchmark th, .benchmark td { padding: 8px 3px; }
+    }
+    @media print {
+      .table-scroll { overflow: visible; break-inside: avoid; }
+      .benchmark { font-size: 9pt; }
+      .benchmark caption { font-size: 9pt; }
+      .benchmark th, .benchmark td { padding: 6pt 4pt; }
+      .benchmark thead { display: table-header-group; }
+      .benchmark tr { break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
@@ -63,7 +82,7 @@
       <p class="course">CS 184/284A · Fall 2026</p>
       <h1>Homework 3: PathTracer</h1>
       <p class="byline">Md Aeinul Islam</p>
-      <p class="draft">Local report draft: Overview and Part 1 are complete. Parts 2–6 are pending. This partial report has not been published.</p>
+      <p class="draft">Local report draft: Overview and Parts 1–2 are complete. Parts 3–6 are pending. This partial report has not been published.</p>
       <nav aria-label="Report sections">
         <ul>
           <li><a href="#overview">Overview</a></li>
@@ -135,7 +154,55 @@
         </div>
         <p class="provenance">Figures 1 and 2 are preserved historical Part 1 renderer PNGs, not operating-system screenshots or new lighting renders. Their scene identities were checked against the original render logs. Original PNG dimensions and bytes are unchanged; the page scales their display proportionally. Unrecorded sampling settings are not inferred from filenames.</p>
       </section>
-      <section id="part2" class="pending" aria-labelledby="part2-heading"><h2 id="part2-heading">Part 2: Bounding Volume Hierarchy</h2><p>Pending a later report milestone.</p></section>
+      <section id="part2" aria-labelledby="part2-heading">
+        <h2 id="part2-heading">Part 2: Bounding Volume Hierarchy</h2>
+        <h3>Construction and the split heuristic</h3>
+        <p>A linear closest-hit query can test every primitive. The BVH groups primitives under axis-aligned boxes so that a ray missing a box can skip its entire subtree. The hierarchy copies and reorders a vector of primitive pointers. It owns its tree nodes, but does not own or delete the scene primitives. Leaf nodes retain iterator ranges into that vector.</p>
+        <p>Construction uses an explicit stack of work items, each containing a primitive range and the destination pointer for its node. For each item, the code unions the primitive bounds and separately bounds their box centroids. A centroid is evaluated as half the minimum plus half the maximum; an empty primitive box uses the zero vector. A range becomes a leaf when its size is at most <code>max(1, max_leaf_size)</code>, which is four in the accelerated benchmark. Otherwise it is partitioned and the right and then left child work items are pushed, so the left range is processed first.</p>
+        <p>The splitting heuristic bins the centroids into 16 bins along each usable axis. Each bin stores a primitive count and a union of the actual primitive bounds. Prefix and suffix unions provide the two child boxes and counts for each of the 15 bin boundaries. The candidate cost is</p>
+        <div class="equation" role="math" aria-label="Binned surface area heuristic split cost">
+          C<sub>split</sub> = 1 + (S<sub>L</sub>N<sub>L</sub> + S<sub>R</sub>N<sub>R</sub>) / S<sub>P</sub>.
+        </div>
+        <p>Here <var>S</var><sub>P</sub>, <var>S</var><sub>L</sub>, and <var>S</var><sub>R</sub> are parent and child box surface areas, and <var>N</var><sub>L</sub> and <var>N</var><sub>R</sub> are child primitive counts. The traversal and primitive-test costs are both one. All box extents are divided by the same largest parent extent before evaluating area, so the common scale cancels in the ratios and reduces numerical overflow and underflow.</p>
+        <p>A candidate is admissible only when both children contain at least <code>max(1, floor(N / 16))</code> primitives. The code selects the lowest-cost admissible boundary across the three axes and partitions by bin membership. This constraint limits highly uneven splits without requiring equal-sized children. The configured leaf cap is a hard limit: above it, the implementation subdivides even if the split cost exceeds the cost of a larger leaf. It does not stop solely because a split is unprofitable.</p>
+        <p>If the parent has zero area, all centroid axes are unusable, or no admissible bin boundary exists, construction uses a median fallback. The code selects the largest centroid-extent axis and uses <code>nth_element</code> to divide the range by count. This ensures progress even when centroids coincide. The final production method combines this constrained binned SAH with iterative construction; detailed comparisons against other construction methods belong in Part 6.</p>
+        <h3>Box intersection and iterative traversal</h3>
+        <p>The box routine intersects the ray with the three axis-aligned slabs. It starts with the overlap of the caller’s interval and the ray’s valid [<code>min_t</code>, <code>max_t</code>] interval. For a nonzero direction component, the two slab-plane distances are sorted, then used to raise the entry bound and lower the exit bound. An empty overlap is rejected. A zero direction component is handled without division: an origin outside that slab misses, while an origin inside imposes no additional restriction. Boundary contact is accepted when entry equals exit.</p>
+        <p>Both query types test the root box, then traverse with an explicit stack. Interior nodes push the right child followed by the left child, producing left-first traversal rather than distance-sorted traversal. A missed child box discards all primitives below it. Any-hit queries return immediately after the first valid primitive intersection, which is sufficient for a bounded visibility query.</p>
+        <p>Closest-hit queries continue through all potentially nearer nodes. Each successful primitive test shortens the ray’s <code>max_t</code> and updates the intersection record. A deferred node’s box is tested against this latest interval when it is popped. A subtree entirely beyond the current closest hit can therefore be pruned without losing a nearer surface. Overlapping bounds can still force many primitive tests, so worst-case traversal remains linear rather than guaranteed logarithmic. Construction and these two traversal paths are iterative; other tree operations, such as destruction, are not claimed to be recursion-free.</p>
+        <h3>Normal-shaded scene results</h3>
+        <p>Figures 3–5 are original outputs from the accelerated mode of a temporary matched normal-render diagnostic. That executable retained the current production camera calculations, scene loading, primitive intersections, normals, and PNG writer. It reconstructed the normal shader for the comparison; the committed global-illumination executable does not expose these diagnostic acceleration modes.</p>
+        <div class="figures">
+          <figure>
+            <img src="docs/images/part2-cow-normals.png" width="800" height="600" alt="Normal-color visualization of the cow mesh against a black background.">
+            <figcaption><strong>Figure 3.</strong> <code>dae/meshedit/cow.dae</code>, 5,856 triangles. Original 800 × 600 normal-shaded PNG from the isolated diagnostic’s SAH iterative BVH mode, using one pixel-center sample per pixel.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part2-maxplanck-normals.png" width="800" height="600" alt="Normal-shaded Max Planck bust, showing smoothly varying colors over its facial geometry.">
+            <figcaption><strong>Figure 4.</strong> <code>dae/meshedit/maxplanck.dae</code>, 50,801 triangles. Original 800 × 600 normal-shaded PNG from the same accelerated diagnostic and sampling configuration.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part2-bunny-base-normals.png" width="800" height="600" alt="Normal-shaded bunny sitting on a rounded base, with both objects visible against black.">
+            <figcaption><strong>Figure 5.</strong> <code>dae/sky/bunny.dae</code>, 33,696 triangles including the base: 28,576 bunny triangles and 5,120 base triangles. Original 800 × 600 PNG from the same accelerated normal-render diagnostic.</figcaption>
+          </figure>
+        </div>
+        <h3>Matched full-render timings</h3>
+        <div class="table-scroll" role="region" aria-labelledby="part2-timing-caption" tabindex="0">
+          <table class="benchmark">
+            <caption id="part2-timing-caption">Table 1. Median full-process normal-render times. Speedup = median without BVH / median with BVH.</caption>
+            <thead><tr><th scope="col">Scene</th><th scope="col">Triangles</th><th scope="col">Without BVH (s)</th><th scope="col">With BVH (s)</th><th scope="col">Speedup</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Cow</th><td>5,856</td><td>0.564889</td><td>0.076737</td><td>7.36×</td></tr>
+              <tr><th scope="row">Max Planck</th><td>50,801</td><td>6.115441</td><td>0.241970</td><td>25.27×</td></tr>
+              <tr><th scope="row">Bunny with base</th><td>33,696</td><td>3.097634</td><td>0.181642</td><td>17.05×</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="provenance">Each scene and mode used five measured trials with alternating execution order, after a preliminary cow pair. The workload was 800 × 600 normal shading, one sample per pixel, eight threads, and identical deterministic pixel-center camera rays. Both modes used the same diagnostic executable, built with AppleClang 21, macOS SDK 26.5, and Release <code>-O3</code> optimization. They produced pixel-identical images with zero differing pixels.</p>
+        <p class="provenance">“Without BVH” denotes a single leaf containing all primitives, with one root bounding-box test retained. “With BVH” uses the current SAH iterative tree. External monotonic wall times include process startup, scene loading, primitive collection, structure construction, rendering, both PNG writes, and normal exit. Compilation and preliminary trials are excluded. Built-in render timers are not used for these speedups. The figures and medians are from this diagnostic normal-render experiment, not global-illumination rendering or the earlier first-mesh intersection workloads.</p>
+        <h3>Analysis</h3>
+        <p id="part2-analysis">Grouping primitives under boxes reduces intersection work because a missed box rejects many surfaces at once. In the matched full-process normal-render comparison, the SAH iterative BVH achieved median speedups of 7.36× for cow, 25.27× for Max Planck, and 17.05× for bunny with base, while producing identical pixels to the single-leaf baseline. The benefit depends on the geometry, bound overlap, visible region, and ray distribution, rather than triangle count alone. Tree traversal adds box and stack work, construction adds per-invocation cost, and loading and image writing remain in both process timings. These measurements therefore describe the complete diagnostic workload on this machine, not universal acceleration factors or global-illumination render times. Five trials and alternating order reduce some ordering bias but do not control operating-system scheduling or thermal variation. Historical median-BVH cow results and intersection-only speedups measure different experiments; SAH-versus-median and iterative-versus-recursive comparisons are reserved for Part 6.</p>
+      </section>
       <section id="part3" class="pending" aria-labelledby="part3-heading"><h2 id="part3-heading">Part 3: Direct Illumination</h2><p>Pending a later report milestone.</p></section>
       <section id="part4" class="pending" aria-labelledby="part4-heading"><h2 id="part4-heading">Part 4: Global Illumination</h2><p>Pending a later report milestone.</p></section>
       <section id="part5" class="pending" aria-labelledby="part5-heading"><h2 id="part5-heading">Part 5: Adaptive Sampling</h2><p>Pending a later report milestone.</p></section>
