@@ -82,7 +82,7 @@
       <p class="course">CS 184/284A · Fall 2026</p>
       <h1>Homework 3: PathTracer</h1>
       <p class="byline">Md Aeinul Islam</p>
-      <p class="draft">Local report draft: Overview and Parts 1–2 are complete. Parts 3–6 are pending. This partial report has not been published.</p>
+      <p class="draft">Local report draft: Overview and Parts 1–3 are complete. Parts 4–6 are pending. This partial report has not been published.</p>
       <nav aria-label="Report sections">
         <ul>
           <li><a href="#overview">Overview</a></li>
@@ -203,7 +203,59 @@
         <h3>Analysis</h3>
         <p id="part2-analysis">Grouping primitives under boxes reduces intersection work because a missed box rejects many surfaces at once. In the matched full-process normal-render comparison, the SAH iterative BVH achieved median speedups of 7.36× for cow, 25.27× for Max Planck, and 17.05× for bunny with base, while producing identical pixels to the single-leaf baseline. The benefit depends on the geometry, bound overlap, visible region, and ray distribution, rather than triangle count alone. Tree traversal adds box and stack work, construction adds per-invocation cost, and loading and image writing remain in both process timings. These measurements therefore describe the complete diagnostic workload on this machine, not universal acceleration factors or global-illumination render times. Five trials and alternating order reduce some ordering bias but do not control operating-system scheduling or thermal variation. Historical median-BVH cow results and intersection-only speedups measure different experiments; SAH-versus-median and iterative-versus-recursive comparisons are reserved for Part 6.</p>
       </section>
-      <section id="part3" class="pending" aria-labelledby="part3-heading"><h2 id="part3-heading">Part 3: Direct Illumination</h2><p>Pending a later report milestone.</p></section>
+      <section id="part3" aria-labelledby="part3-heading">
+        <h2 id="part3-heading">Part 3: Direct Illumination</h2>
+        <h3>Diffuse reflection and emission</h3>
+        <p><code>DiffuseBSDF::f</code> returns <code>reflectance / PI</code>. Reflectance is the material’s RGB albedo, and the division by π normalizes the Lambertian BRDF. Its value is independent of the incoming and outgoing directions within the supported hemisphere; the incident-angle cosine is applied separately in the lighting estimator.</p>
+        <p>After a camera ray intersects geometry, <code>zero_bounce_radiance</code> returns that material’s <code>get_emission()</code>. An emissive material returns its radiance, while an ordinary diffuse material returns zero emission. This is the directly visible emission term, not the complete surface radiance: a nonemissive surface can still reflect light through the direct-lighting calculation.</p>
+        <h3>Uniform hemisphere sampling</h3>
+        <p>At the hit point, the surface normal defines the local positive z-axis. <code>make_coord_space</code> supplies the local-to-world rotation, and its transpose maps the outgoing direction into local coordinates. The estimator draws <var>N</var> = number of scene lights × <code>ns_area_light</code> uniform hemisphere directions. Each direction becomes a world-space ray from the hit point with <code>min_t = EPS_F</code> to avoid a numerical self-hit. A closest-hit query finds the first surface along that direction. Only its emission contributes; a miss contributes zero in this estimator, with no environment lookup.</p>
+        <div class="equation" role="math" aria-label="Uniform hemisphere direct-light estimator">
+          p(ω<sub>i</sub>) = 1 / (2π), &nbsp;
+          L̂<sub>direct</sub> = (1 / <var>N</var>) ∑<sub>i=1</sub><sup>N</sup> f<sub>r</sub>(ω<sub>o</sub>, ω<sub>i</sub>) L<sub>e</sub>(first hit) cos θ<sub>i</sub> / p(ω<sub>i</sub>).
+        </div>
+        <p>The local direction’s z component gives cos θ. Division by the solid-angle PDF and averaging over all draws, including misses and nonemissive hits, give the Monte Carlo normalization. If the sample budget is zero, the function returns zero. This uniform direct-light sampler is distinct from BSDF path continuation and from pixel sampling.</p>
+        <h3>Importance sampling of lights</h3>
+        <p>The other estimator loops over the scene lights. Each light’s <code>sample_L</code> supplies incident radiance, a world-space direction, distance, and sampling PDF. Delta lights receive one sample; other lights receive <code>ns_area_light</code> samples. Invalid PDFs or directions and samples below the local surface hemisphere are rejected. Visibility uses a shadow ray with <code>min_t = EPS_F</code> and <code>max_t = distToLight - EPS_F</code>, so intersections beyond the sampled light do not occlude it. For a visible sample, the contribution is incident radiance × BRDF × local direction z / PDF. The code averages each light’s sample budget, counting rejected samples as zero, then sums the light estimates.</p>
+        <p>For the rectangular area light, sampling is uniform over area <var>A</var>. The corrected conversion to a directional PDF is p(ω) = <var>r</var><sup>2</sup> / (<var>A</var> |<var>n</var><sub>light</sub> · ω|), with ω normalized before evaluating the cosine. The light retains its one-sided emission check. <code>one_bounce_radiance</code> selects between these two direct estimators using <code>direct_hemisphere_sample</code>.</p>
+        <h3>Matched estimator comparison</h3>
+        <p>Both original renders below use <code>CBbunny.dae</code>, the same default camera, 480 × 360 pixels, 16 samples per pixel, a light-sample setting of 4, maximum depth 1, one thread, and disabled adaptive sampling. The recorded commands differ in estimator selection through <code>-H</code>. The hemisphere budget is four directions per scene light per camera sample; the light estimator draws four samples from each non-delta light.</p>
+        <div class="figures" id="part3-estimators">
+          <figure>
+            <img src="docs/images/part3-hemisphere-direct.png" width="480" height="360" alt="Cornell Box bunny rendered with uniform hemisphere direct sampling, showing strong speckling on the walls and floor.">
+            <figcaption>Figure 6. Uniform hemisphere sampling, CBbunny: 16 spp, light-sample setting 4, maximum depth 1.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part3-importance-direct.png" width="480" height="360" alt="Same Cornell Box bunny rendered with explicit light importance sampling, with smoother walls and floor shadows.">
+            <figcaption>Figure 7. Light importance sampling, CBbunny: 16 spp, 4 samples per area light, maximum depth 1.</figcaption>
+          </figure>
+        </div>
+        <p class="provenance">These are the original post-correction PNGs from the area-light PDF follow-up. The retained commands, render logs, and evidence report establish their historical settings; no new render was made. The hemisphere implementation reads emission from intersected geometry, whereas explicit area-light sampling enforces one-sided emission. The ceiling difference should therefore not be interpreted entirely as sampling noise or as a pixelwise equivalence test.</p>
+        <h3>Area-light samples and soft shadows</h3>
+        <p>The next four original renders hold <code>CBbunny.dae</code>, its default camera, 480 × 360 resolution, random pixel sampling at 1 spp, maximum depth 1, accumulated illumination, eight threads, and disabled adaptive sampling constant. All use explicit light importance sampling, with <code>-H</code> omitted. Only the light-sample setting and output filename change in the recorded commands: <code>-s 1 -l 1</code>, <code>-s 1 -l 4</code>, <code>-s 1 -l 16</code>, and <code>-s 1 -l 64</code>.</p>
+        <div class="figures" id="part3-shadows">
+          <figure>
+            <img src="docs/images/part3-soft-shadow-l1.png" width="480" height="360" alt="CBbunny with one pixel sample and one area-light sample, with coarse speckling in the floor penumbra.">
+            <figcaption>Figure 8. CBbunny, light importance sampling: 1 spp, 1 light sample. Scene and pixel-sample count are fixed throughout this series.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part3-soft-shadow-l4.png" width="480" height="360" alt="Same CBbunny scene at one pixel sample and four area-light samples, with less floor-shadow speckling.">
+            <figcaption>Figure 9. Same scene, light importance sampling: 1 spp, 4 light samples. Maximum depth remains 1.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part3-soft-shadow-l16.png" width="480" height="360" alt="Same CBbunny scene at one pixel sample and sixteen area-light samples, with a clearer soft-shadow transition.">
+            <figcaption>Figure 10. Same scene, light importance sampling: 1 spp, 16 light samples. Maximum depth remains 1.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part3-soft-shadow-l64.png" width="480" height="360" alt="Same CBbunny scene at one pixel sample and sixty-four area-light samples, showing the smoothest penumbra in this series.">
+            <figcaption>Figure 11. Same scene, light importance sampling: 1 spp, 64 light samples. Maximum depth remains 1.</figcaption>
+          </figure>
+        </div>
+        <p>The finite emitter area creates a penumbra because different sampled points on the light have different visibility. These four realizations show less random speckling as the number of light samples increases, while the broad shadow shape stays consistent. One pixel sample still leaves camera-sampling noise and jagged object edges. Individual pixels need not improve monotonically, and these images do not supply a reference-based error measurement.</p>
+        <p class="provenance">The four originals are recorded in the final Part 3 evidence manifest at production commit <code>a8474c1</code>. Each successful renderer invocation used <code>-f</code>; dimensions, camera records, settings, and original SHA-256 hashes were checked before copying the PNG bytes unchanged.</p>
+        <h3>Estimator comparison analysis</h3>
+        <p id="part3-analysis">Both strategies aim to estimate reflected direct illumination, but uniform hemisphere directions frequently miss the small ceiling emitter in this Cornell Box, leaving many zero contributions. Explicit light sampling targets the emitter and bounds each visibility ray to the sampled light distance. In the matched 16-spp images, it produces substantially smoother walls and floor shadows, making it the more effective sampling strategy for this scene at these settings. That observation concerns noise in these realizations, not a claim that noisy hemisphere sampling is intrinsically biased; the emission-sidedness distinction noted above also limits exact agreement. Neither method guarantees a cleaner result for every random image, and this comparison is not a formal convergence proof or a timing benchmark.</p>
+      </section>
       <section id="part4" class="pending" aria-labelledby="part4-heading"><h2 id="part4-heading">Part 4: Global Illumination</h2><p>Pending a later report milestone.</p></section>
       <section id="part5" class="pending" aria-labelledby="part5-heading"><h2 id="part5-heading">Part 5: Adaptive Sampling</h2><p>Pending a later report milestone.</p></section>
       <section id="part6" class="pending" aria-labelledby="part6-heading"><h2 id="part6-heading">Part 6: Extra Credit Opportunities</h2><p>Pending a later report milestone.</p></section>
