@@ -82,7 +82,7 @@
       <p class="course">CS 184/284A · Fall 2026</p>
       <h1>Homework 3: PathTracer</h1>
       <p class="byline">Md Aeinul Islam</p>
-      <p class="draft">Local report draft: Overview and Parts 1–3 are complete. Parts 4–6 are pending. This partial report has not been published.</p>
+      <p class="draft">Local report draft: Overview and Parts 1–4 are complete. Parts 5–6 are pending. This partial report has not been published.</p>
       <nav aria-label="Report sections">
         <ul>
           <li><a href="#overview">Overview</a></li>
@@ -256,7 +256,169 @@
         <h3>Estimator comparison analysis</h3>
         <p id="part3-analysis">Both strategies aim to estimate reflected direct illumination, but uniform hemisphere directions frequently miss the small ceiling emitter in this Cornell Box, leaving many zero contributions. Explicit light sampling targets the emitter and bounds each visibility ray to the sampled light distance. In the matched 16-spp images, it produces substantially smoother walls and floor shadows, making it the more effective sampling strategy for this scene at these settings. That observation concerns noise in these realizations, not a claim that noisy hemisphere sampling is intrinsically biased; the emission-sidedness distinction noted above also limits exact agreement. Neither method guarantees a cleaner result for every random image, and this comparison is not a formal convergence proof or a timing benchmark.</p>
       </section>
-      <section id="part4" class="pending" aria-labelledby="part4-heading"><h2 id="part4-heading">Part 4: Global Illumination</h2><p>Pending a later report milestone.</p></section>
+      <section id="part4" aria-labelledby="part4-heading">
+        <h2 id="part4-heading">Part 4: Global Illumination</h2>
+        <h3>Cosine-weighted diffuse sampling</h3>
+        <p><code>DiffuseBSDF::sample_f</code> draws a local incoming direction from its cosine-weighted hemisphere sampler, writes the direction and PDF through its output pointers, and returns <code>f(wo, wi)</code> = RGB reflectance / π. The sampler maps two uniform values to a disk with radius √ξ₁ and angle 2πξ₂, then lifts the point to z = √(1 − ξ₁). Its solid-angle PDF is p(ω) = cos θ / π. This concentrates samples near the normal, where the Lambertian transport integrand has greater cosine weight. Consequently, f cos θ / p simplifies to RGB reflectance for a valid diffuse sample. This is BSDF path continuation, distinct from the uniform hemisphere direct-light estimator in Part 3.</p>
+        <h3>Recursive radiance and depth semantics</h3>
+        <p>Camera rays start with <code>depth = max_ray_depth</code>. After a hit, <code>est_radiance_global_illumination</code> adds primary material emission when accumulation is enabled or depth is zero. Positive depths also enter <code>at_least_one_bounce_radiance</code>. That function returns zero at depth zero and evaluates direct light when accumulation is enabled or the remaining depth is one. Depth one returns immediately. Otherwise it may continue, samples the BSDF, rejects invalid PDFs or below-surface directions, transforms the direction through <code>o2w</code>, and traces a secondary ray from the hit point with <code>min_t = EPS_F</code> and depth reduced by one. A closest intersection supplies the next material and normal; a secondary miss contributes zero.</p>
+        <div class="equation" role="math" aria-label="Recursive indirect contribution with survival compensation">
+          L̂ = D + I<sub>survive</sub> f<sub>r</sub>(ω<sub>o</sub>, ω<sub>i</sub>) L̂<sub>next</sub> cos θ<sub>i</sub> / (p(ω<sub>i</sub>) q).
+        </div>
+        <p>Here <var>D</var> is the direct term allowed by the bounce mode, and <var>q</var> is the continuation probability. The recursive call is to <code>at_least_one_bounce_radiance</code>, rather than the primary-ray wrapper: secondary light endpoints are accounted for by explicit light sampling, without adding a separate BSDF-hit emission term. Primary misses can use the environment in the wrapper, but secondary misses do not. This describes the implemented diffuse estimator and its current limits.</p>
+        <p>In individual mode (<code>-o 0</code>), m = 0 shows visible emission; m = 1 shows reflected direct light without primary emission; m ≥ 2 isolates the selected higher order by postponing the direct term until remaining depth one. In accumulated mode (<code>-o 1</code>), primary emission and all eligible reflected orders up to m are retained. Thus an accumulated depth-5 image shows direct plus indirect global illumination, whereas an individual depth-5 image shows only the fifth order.</p>
+        <h3>Direct-only and indirect-only views</h3>
+        <p>These two views were produced with an isolated temporary diagnostic modification of the path tracer. The production implementation was not changed for this comparison. Direct mode returns primary visible emission plus first-surface direct illumination. Indirect mode suppresses primary emission and the first surface’s direct estimate, while preserving the recursively weighted direct estimates at deeper surfaces. Both use CBbunny, 480 × 360, 1024 spp, 4 light samples, maximum depth 5, accumulated mode, eight threads, random pixel sampling, and disabled adaptive sampling.</p>
+        <div class="figures" id="part4-isolation">
+          <figure>
+            <img src="docs/images/part4-direct-only.png" width="480" height="360" alt="CBbunny direct-only view with a bright emitter, soft floor shadow, and dark ceiling and shadowed bunny.">
+            <figcaption>Figure 12. CBbunny, diagnostic direct-only: visible emission and first-surface direct light; 1024 spp, 4 light samples, depth 5.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-indirect-only.png" width="480" height="360" alt="CBbunny indirect-only view showing colored wall interreflection and ceiling fill, with the visible emitter black.">
+            <figcaption>Figure 13. CBbunny, diagnostic indirect-only: deeper reflected transport; 1024 spp, 4 light samples, depth 5.</figcaption>
+          </figure>
+        </div>
+        <p>The direct view contains the bright ceiling emitter and the main cast shadow, but the ceiling and shadowed bunny remain dark. The indirect view fills these regions and transfers red and blue wall colors to the bunny and room. Its black emitter is intentional: directly viewed emission belongs to the direct component, while the emissive material has no scattering contribution here. The full global images below combine these kinds of transport. Independent random samples and nonlinear display conversion mean the displayed PNGs must not be added as an exact reconstruction.</p>
+        <h3>Individual versus accumulated bounces</h3>
+        <p>Each pair below compares the same maximum depth, with individual order on the left and accumulated illumination on the right. Every original uses CBbunny’s same default camera at 480 × 360, 1024 spp, 4 light samples, eight threads, random pixel sampling, importance-sampled direct light, and adaptive stopping disabled. All production images in this section came from commit <code>a8474c1</code> with Russian roulette already implemented.</p>
+        <div class="figures" id="part4-bounce-m0">
+          <figure>
+            <img src="docs/images/part4-individual-m0.png" width="480" height="360" alt="Visible ceiling emission against an otherwise black room, isolated at individual depth 0.">
+            <figcaption>Figure 14. CBbunny, individual m = 0, accumulation off; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m0.png" width="480" height="360" alt="CBbunny accumulated through depth 0, showing only visible emission.">
+            <figcaption>Figure 15. CBbunny, accumulated m = 0, orders 0–0; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-bounce-m1">
+          <figure>
+            <img src="docs/images/part4-individual-m1.png" width="480" height="360" alt="Direct illumination and the main bunny shadow, isolated at individual depth 1.">
+            <figcaption>Figure 16. CBbunny, individual m = 1, accumulation off; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m1.png" width="480" height="360" alt="CBbunny accumulated through depth 1, retaining visible emission and the eligible reflected lighting.">
+            <figcaption>Figure 17. CBbunny, accumulated m = 1, orders 0–1; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-bounce-m2">
+          <figure>
+            <img src="docs/images/part4-individual-m2.png" width="480" height="360" alt="Second-order reflected fill and red and blue color bleeding, isolated at individual depth 2.">
+            <figcaption>Figure 18. CBbunny, individual m = 2, accumulation off; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m2.png" width="480" height="360" alt="CBbunny accumulated through depth 2, retaining visible emission and the eligible reflected lighting.">
+            <figcaption>Figure 19. CBbunny, accumulated m = 2, orders 0–2; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-bounce-m3">
+          <figure>
+            <img src="docs/images/part4-individual-m3.png" width="480" height="360" alt="Dimmer third-order colored interreflection, isolated at individual depth 3.">
+            <figcaption>Figure 20. CBbunny, individual m = 3, accumulation off; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m3.png" width="480" height="360" alt="CBbunny accumulated through depth 3, retaining visible emission and the eligible reflected lighting.">
+            <figcaption>Figure 21. CBbunny, accumulated m = 3, orders 0–3; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-bounce-m4">
+          <figure>
+            <img src="docs/images/part4-individual-m4.png" width="480" height="360" alt="Dark fourth-order illumination retaining room and bunny structure, isolated at individual depth 4.">
+            <figcaption>Figure 22. CBbunny, individual m = 4, accumulation off; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m4.png" width="480" height="360" alt="CBbunny accumulated through depth 4, retaining visible emission and the eligible reflected lighting.">
+            <figcaption>Figure 23. CBbunny, accumulated m = 4, orders 0–4; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-bounce-m5">
+          <figure>
+            <img src="docs/images/part4-individual-m5.png" width="480" height="360" alt="Faint fifth-order colored illumination, isolated at individual depth 5.">
+            <figcaption>Figure 24. CBbunny, individual m = 5, accumulation off; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m5.png" width="480" height="360" alt="CBbunny accumulated through depth 5, retaining visible emission and the eligible reflected lighting.">
+            <figcaption>Figure 25. CBbunny, accumulated m = 5, orders 0–5; 1024 spp, 4 light samples.</figcaption>
+          </figure>
+        </div>
+        <h3>What the second and third bounces add</h3>
+        <p>The individual m = 2 image isolates light reaching the visible surface after one additional surface reflection: the ceiling receives fill, the bunny’s previously dark regions become visible, and the red and blue walls tint neighboring surfaces. The m = 3 image shows another diffuse reflection, with a weaker but still colored contribution across the bunny and room. In the accumulated pairs, these orders soften the overly dark direct-only appearance and make surfaces feel connected by shared illumination. Orders four and five are smaller in these particular images, although their structure remains visible. Basic rasterization resolves visible surfaces but does not automatically integrate this recursive diffuse transport; similar fill and color bleeding require added methods such as lightmaps or other global-illumination techniques.</p>
+        <p>Increasing accumulated depth includes more bounce orders, but independent random draws do not guarantee that every displayed pixel becomes brighter. The individual PNGs are separately sampled and tone-mapped, so summing them in display space is not a valid accumulated-radiance calculation.</p>
+        <h3>Russian roulette and the depth limit</h3>
+        <p>For maximum depth greater than one, the initial surface’s continuation uses q = 1, ensuring that one indirect direction is attempted. At later eligible vertices, q = 0.65 gives a 35% termination probability. Termination retains any direct estimate already computed at that vertex; survival weights only the recursive contribution by 1/q. Depth one returns without a continuation test, and misses stop the path. Probability compensation preserves the expected finite-depth contribution under stochastic termination, while the remaining maximum-depth cutoff still truncates longer paths. Depth 100 therefore permits much deeper transport, not infinitely long paths.</p>
+        <p>The six views below use 1024 spp, 4 light samples, and accumulated mode. The m = 0–4 views reuse the exact accumulated images above: their manifests identify the same production executable containing roulette, with matching settings. At depths zero and one no roulette decision is reached; depth two forces its sole indirect continuation. The separate original m = 100 render exercises the deeper roulette-enabled pipeline. It retains the room’s indirect fill and color bleeding without an obvious large change in overall appearance from accumulated m = 5. Random termination avoids tracing every path to an excessive cap, but these images provide neither path-length statistics nor a measured speedup.</p>
+        <div class="figures" id="part4-roulette-0">
+          <figure>
+            <img src="docs/images/part4-accumulated-m0.png" width="480" height="360" alt="CBbunny accumulated depth 0 in the roulette-enabled implementation, showing the emission and lighting allowed at this depth.">
+            <figcaption>Figure 26. CBbunny, roulette-enabled production estimator, accumulated m = 0; 1024 spp, 4 light samples. Reuses the corresponding accumulated original.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m1.png" width="480" height="360" alt="CBbunny accumulated depth 1 in the roulette-enabled implementation, showing the emission and lighting allowed at this depth.">
+            <figcaption>Figure 27. CBbunny, roulette-enabled production estimator, accumulated m = 1; 1024 spp, 4 light samples. Reuses the corresponding accumulated original.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-roulette-1">
+          <figure>
+            <img src="docs/images/part4-accumulated-m2.png" width="480" height="360" alt="CBbunny accumulated depth 2 in the roulette-enabled implementation, with deeper indirect fill and colored interreflection.">
+            <figcaption>Figure 28. CBbunny, roulette-enabled production estimator, accumulated m = 2; 1024 spp, 4 light samples. Reuses the corresponding accumulated original.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-accumulated-m3.png" width="480" height="360" alt="CBbunny accumulated depth 3 in the roulette-enabled implementation, with deeper indirect fill and colored interreflection.">
+            <figcaption>Figure 29. CBbunny, roulette-enabled production estimator, accumulated m = 3; 1024 spp, 4 light samples. Reuses the corresponding accumulated original.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-roulette-2">
+          <figure>
+            <img src="docs/images/part4-accumulated-m4.png" width="480" height="360" alt="CBbunny accumulated depth 4 in the roulette-enabled implementation, with deeper indirect fill and colored interreflection.">
+            <figcaption>Figure 30. CBbunny, roulette-enabled production estimator, accumulated m = 4; 1024 spp, 4 light samples. Reuses the corresponding accumulated original.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-roulette-m100.png" width="480" height="360" alt="CBbunny accumulated depth 100 in the roulette-enabled implementation, with deeper indirect fill and colored interreflection.">
+            <figcaption>Figure 31. CBbunny, roulette-enabled production estimator, accumulated m = 100; 1024 spp, 4 light samples. Separate depth-100 original.</figcaption>
+          </figure>
+        </div>
+        <h3>Samples per pixel and image noise</h3>
+        <p>This series holds CBbunny, its default camera, 480 × 360 resolution, 4 light samples, maximum depth 5, accumulated illumination, eight threads, random pixel sampling, importance-sampled direct light, and adaptive stopping disabled constant. Only spp and output filenames vary. The 1024-spp endpoint reuses accumulated m = 5 above and is also a primary example of global direct-plus-indirect illumination.</p>
+        <div class="figures" id="part4-spp-0">
+          <figure>
+            <img src="docs/images/part4-spp1.png" width="480" height="360" alt="CBbunny global illumination at 1 samples per pixel, with strong multicolor grain.">
+            <figcaption>Figure 32. CBbunny, 1 spp, 4 light samples, accumulated depth 5.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-spp2.png" width="480" height="360" alt="CBbunny global illumination at 2 samples per pixel, with strong multicolor grain.">
+            <figcaption>Figure 33. CBbunny, 2 spp, 4 light samples, accumulated depth 5.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-spp-1">
+          <figure>
+            <img src="docs/images/part4-spp4.png" width="480" height="360" alt="CBbunny global illumination at 4 samples per pixel, with strong multicolor grain.">
+            <figcaption>Figure 34. CBbunny, 4 spp, 4 light samples, accumulated depth 5.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-spp8.png" width="480" height="360" alt="CBbunny global illumination at 8 samples per pixel, with increasingly stable surface shading and indirect fill.">
+            <figcaption>Figure 35. CBbunny, 8 spp, 4 light samples, accumulated depth 5.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-spp-2">
+          <figure>
+            <img src="docs/images/part4-spp16.png" width="480" height="360" alt="CBbunny global illumination at 16 samples per pixel, with increasingly stable surface shading and indirect fill.">
+            <figcaption>Figure 36. CBbunny, 16 spp, 4 light samples, accumulated depth 5.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part4-spp64.png" width="480" height="360" alt="CBbunny global illumination at 64 samples per pixel, with increasingly stable surface shading and indirect fill.">
+            <figcaption>Figure 37. CBbunny, 64 spp, 4 light samples, accumulated depth 5.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part4-spp-3">
+          <figure>
+            <img src="docs/images/part4-accumulated-m5.png" width="480" height="360" alt="CBbunny global illumination at 1024 samples per pixel, with increasingly stable surface shading and indirect fill.">
+            <figcaption>Figure 38. CBbunny, 1024 spp, 4 light samples, accumulated depth 5. Reuses the 1024-spp accumulated m = 5 original.</figcaption>
+          </figure>
+        </div>
+        <p>At 1–4 spp, strong multicolor grain obscures wall shading, bunny detail, and the shadow transition. At 8–16 spp the lighting is more stable, while 64 spp is noticeably smoother and 1024 spp retains finer detail with much less grain. Increasing the camera-sample budget requires more sampling work, and progressively larger budgets yield diminishing visible improvements; no runtime benchmark is inferred here. The 1024-spp image remains a finite Monte Carlo result, not analytic ground truth. One realization per setting does not prove convergence or monotonic improvement at every pixel.</p>
+        <p class="provenance">All figures in this section use original renderer <code>-f</code> output, copied without cropping, resizing, recompression, or color changes. The individual, accumulated, depth-100, spp, and isolated-diagnostic manifests supply the settings and original SHA-256 hashes. The production random generator uses a separately seeded thread-local Mersenne Twister per thread; independent runs have different random streams. The observations concern visible PNG appearance, not a proof of finite HDR radiance everywhere or a calibrated error estimate. No new render was made for this report milestone.</p>
+      </section>
       <section id="part5" class="pending" aria-labelledby="part5-heading"><h2 id="part5-heading">Part 5: Adaptive Sampling</h2><p>Pending a later report milestone.</p></section>
       <section id="part6" class="pending" aria-labelledby="part6-heading"><h2 id="part6-heading">Part 6: Extra Credit Opportunities</h2><p>Pending a later report milestone.</p></section>
     </main>
