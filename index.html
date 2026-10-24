@@ -82,7 +82,7 @@
       <p class="course">CS 184/284A · Fall 2026</p>
       <h1>Homework 3: PathTracer</h1>
       <p class="byline">Md Aeinul Islam</p>
-      <p class="draft">Local report draft: Overview and Parts 1–4 are complete. Parts 5–6 are pending. This partial report has not been published.</p>
+      <p class="draft">Local report draft: Overview and Parts 1–5 are complete. Part 6 is pending. This partial report has not been published.</p>
       <nav aria-label="Report sections">
         <ul>
           <li><a href="#overview">Overview</a></li>
@@ -419,7 +419,57 @@
         <p>At 1–4 spp, strong multicolor grain obscures wall shading, bunny detail, and the shadow transition. At 8–16 spp the lighting is more stable, while 64 spp is noticeably smoother and 1024 spp retains finer detail with much less grain. Increasing the camera-sample budget requires more sampling work, and progressively larger budgets yield diminishing visible improvements; no runtime benchmark is inferred here. The 1024-spp image remains a finite Monte Carlo result, not analytic ground truth. One realization per setting does not prove convergence or monotonic improvement at every pixel.</p>
         <p class="provenance">All figures in this section use original renderer <code>-f</code> output, copied without cropping, resizing, recompression, or color changes. The individual, accumulated, depth-100, spp, and isolated-diagnostic manifests supply the settings and original SHA-256 hashes. The production random generator uses a separately seeded thread-local Mersenne Twister per thread; independent runs have different random streams. The observations concern visible PNG appearance, not a proof of finite HDR radiance everywhere or a calibrated error estimate. No new render was made for this report milestone.</p>
       </section>
-      <section id="part5" class="pending" aria-labelledby="part5-heading"><h2 id="part5-heading">Part 5: Adaptive Sampling</h2><p>Pending a later report milestone.</p></section>
+      <section id="part5" aria-labelledby="part5-heading">
+        <h2 id="part5-heading">Part 5: Adaptive Sampling</h2>
+        <h3>Allocating samples by pixel</h3>
+        <p>A uniform high sample count spends the same budget on stable pixels and on pixels with highly variable light transport. Adaptive sampling instead collects camera samples for each pixel until its estimated uncertainty meets a relative tolerance or the maximum budget is exhausted. The <code>-s 2048</code> setting below is a cap, not a claim that every pixel receives 2048 samples.</p>
+        <p>In <code>raytrace_pixel</code>, each jittered camera ray produces an RGB radiance sample. RGB values accumulate for the final color, while <code>value.illum()</code> supplies the scalar statistic x = 0.2126R + 0.7152G + 0.0722B. The code updates its count <var>n</var>, sum <var>s</var><sub>1</sub>, and squared-value sum <var>s</var><sub>2</sub> after each sample:</p>
+        <div class="equation" role="math" aria-label="Adaptive sampling statistics and stopping criterion">
+          s<sub>1</sub> = ∑<sub>k=1</sub><sup>n</sup> x<sub>k</sub>, &nbsp; s<sub>2</sub> = ∑<sub>k=1</sub><sup>n</sup> x<sub>k</sub><sup>2</sup>, &nbsp; μ = s<sub>1</sub> / n.<br>
+          σ̂<sup>2</sup> = max(0, (s<sub>2</sub> − s<sub>1</sub><sup>2</sup> / n) / (n − 1)).<br>
+          I = 1.96 √(σ̂<sup>2</sup> / n), &nbsp; stop when I ≤ maxTolerance · μ.
+        </div>
+        <p>The mean μ estimates average pixel illuminance; σ̂ measures sample variability. The interval half-width <var>I</var> uses an approximate 95% normal-confidence model. Greater variability tends to require more samples, while increasing <var>n</var> generally reduces the estimated half-width. Checks occur only when <code>samplesPerBatch &gt; 0</code>, <var>n</var> ≥ 2, and <var>n</var> is a batch multiple. These renders use batches of 64 and tolerance 0.05. Pixels failing the test continue to the cap. Setting the batch size to zero disables these checks.</p>
+        <p>The n ≥ 2 guard avoids division by n − 1 at the first sample, and <code>max(0, ...)</code> clamps negative variance from rounding. The sum-of-squares formula can still suffer cancellation; there is no additional numerical stabilization or special dark-pixel tolerance floor. A sample sequence that is identically black has μ = I = 0 and can stop at its first eligible batch, even though an unseen rare bright path could exist. Thus this is a heuristic stopping rule, not a guaranteed error bound.</p>
+        <p>On exit, RGB radiance is divided by the actual count, with zero returned for a zero budget, and <code>sampleCountBuffer[x + y * width]</code> records that count. Statistics are local to the pixel call; tile workers process separate pixel entries, and random sampling uses thread-local generators. The rate-image writer reads the recorded count divided by the maximum budget and flips the vertical coordinate to match the saved render.</p>
+        <h3>Two adaptive scene results</h3>
+        <p>Both scenes use 480 × 360 pixels, maximum 2048 spp, batch 64, tolerance 0.05, one sample per light, maximum depth 5, accumulated illumination, random pixel sampling, importance-sampled direct lighting, and eight threads. Each uses its scene’s default camera. In each pair, the final render is followed by its corresponding rate map. The palette interpolates from blue at low normalized counts through green at half the cap (1024 samples) to red at the full cap (2048). A red pixel reached the budget; its color alone does not establish convergence or ground-truth error.</p>
+        <div class="figures" id="part5-bunny">
+          <figure>
+            <img src="docs/images/part5-bunny-adaptive.png" width="480" height="360" alt="Adaptive CBbunny render with soft shadows, red and blue color bleeding, and some residual grain.">
+            <figcaption>Figure 39. CBbunny.dae, adaptive rendering: maximum 2048 spp, batch 64, tolerance 0.05, one light sample, depth 5.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part5-bunny-rate.png" width="480" height="360" alt="CBbunny sample-rate map: blue walls and lit regions, with higher green and red rates around the ceiling, bunny folds, ear, and floor shadow.">
+            <figcaption>Figure 40. Matching CBbunny rate map, with the same adaptive settings. Blue indicates lower counts; green is 1024 samples; red is the 2048-sample cap.</figcaption>
+          </figure>
+        </div>
+        <div class="figures" id="part5-spheres">
+          <figure>
+            <img src="docs/images/part5-spheres-adaptive.png" width="480" height="360" alt="Adaptive CBspheres_lambertian render showing two diffuse spheres, soft contact shadows, and colored indirect fill.">
+            <figcaption>Figure 41. CBspheres_lambertian.dae, adaptive rendering: maximum 2048 spp, batch 64, tolerance 0.05, one light sample, depth 5.</figcaption>
+          </figure>
+          <figure>
+            <img src="docs/images/part5-spheres-rate.png" width="480" height="360" alt="Lambertian spheres sample-rate map with low blue upper lit surfaces and higher red rates on the dark lower sphere regions, ceiling, and contact shadows.">
+            <figcaption>Figure 42. Matching CBspheres_lambertian rate map, with the same adaptive settings. Blue indicates lower counts; green is 1024 samples; red is the 2048-sample cap.</figcaption>
+          </figure>
+        </div>
+        <h3>Observed sample distributions</h3>
+        <p>The bunny map allocates fewer samples to much of the smooth wall area and more to the ceiling, shadowed folds, ear, and floor shadow. In the spheres map, the lit upper surfaces have lower rates, while the ceiling, dark lower regions, and contact shadows receive more work. These are spatially varying outcomes of the measured relative-uncertainty test, not a universal classification of difficult geometry.</p>
+        <div class="table-scroll">
+          <table class="benchmark" id="part5-counts">
+            <caption>Actual sample counts reconstructed from the original rate maps. Both scenes have a 2048-spp maximum.</caption>
+            <thead><tr><th scope="col">Scene</th><th scope="col">Mean spp</th><th scope="col">Median spp</th><th scope="col">Stopped early</th><th scope="col">Samples avoided</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">CBbunny</th><td>664.306</td><td>384</td><td>88.235%</td><td>67.563%</td></tr>
+              <tr><th scope="row">CBspheres_<wbr>lambertian</th><td>825.822</td><td>512</td><td>81.689%</td><td>59.677%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Both scenes span 64–2048 actual samples per pixel. The fractions reaching the cap are 11.765% for bunny and 18.311% for spheres; most pixels stop earlier. Counts were reconstructed using the source-verified rate palette: batch checks and this cap permit exactly 32 counts, 64, 128, …, 2048, each with a unique 8-bit RGB code. Every observed code and the complete reconstructed histograms match the evidence manifest. These statistics are derived from the rate PNGs under those verified invariants, not a separate raw-count export.</p>
+        <p>“Samples avoided” is 100 × (1 − mean spp / 2048), relative to a hypothetical uniform 2048-spp budget. It measures sampling work not performed, not a measured wall-time speedup or an equal-quality comparison. The images retain some grain, and reaching the tolerance does not guarantee a noise-free pixel. Rare bright paths, the relative criterion in dark regions, and data-dependent stopping limit confidence calibration and can leave residual error or bias. There is one random realization per scene and no converged reference or formal convergence claim.</p>
+        <p class="provenance">The final adaptive evidence manifest at production commit <code>a8474c1</code> records both successful <code>-f</code> renderer runs, their original render/rate pairs, exact settings, and SHA-256 hashes. All four original PNGs were copied byte-for-byte without cropping, resizing, recompression, or color changes. No new render or timing benchmark was run for this report.</p>
+      </section>
       <section id="part6" class="pending" aria-labelledby="part6-heading"><h2 id="part6-heading">Part 6: Extra Credit Opportunities</h2><p>Pending a later report milestone.</p></section>
     </main>
     <footer>CS 184/284A · Homework 3 · Fall 2026. Local draft awaiting the remaining report sections and final student review.</footer>
